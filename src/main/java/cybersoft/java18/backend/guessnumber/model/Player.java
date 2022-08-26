@@ -7,13 +7,13 @@ public class Player {
 	private String username;
 	private String password;
 	private String name;
-	private List<Round> rounds;
+	private List<GameSession> gameSessions;
 	
 	public Player(String username, String password, String name) {
 		this.username = username;
 		this.password = password;
 		this.name = name;
-		rounds = new ArrayList<Round>();
+		gameSessions = new ArrayList<GameSession>();
 	}
 
 	public String getUsername() {
@@ -28,7 +28,7 @@ public class Player {
 		return name;
 	}
 
-	public List<Round> getRounds() {
-		return rounds;
+	public List<GameSession> getGameSessions() {
+		return gameSessions;
 	}
 }

@@ -1,17 +1,22 @@
 package cybersoft.java18.backend.guessnumber.service;
 
-import cybersoft.java18.backend.guessnumber.model.Player;
-import cybersoft.java18.backend.guessnumber.store.GameStore;
-import cybersoft.java18.backend.guessnumber.store.GameStoreHolder;
+import java.util.List;
+
+import cybersoft.java18.backend.guessnumber.model.GameSession;
+import cybersoft.java18.backend.guessnumber.model.Guess;
+import cybersoft.java18.backend.guessnumber.repository.GuessRepository;
+import cybersoft.java18.backend.guessnumber.repository.GameSessionRepository;
 
 public class GameService {
 	private static GameService INSTANCE = null;
-	private GameStore store;
+	private final GameSessionRepository gameSessionRepository;
+	private final GuessRepository guessRepository;
 
 	public GameService() {
-		store = GameStoreHolder.getStore();
+		gameSessionRepository = new GameSessionRepository();
+		guessRepository = new GuessRepository();
 	}
-	
+
 	public static GameService getInstance() {
 		if (INSTANCE == null) {
 			INSTANCE = new GameService();
@@ -19,45 +24,53 @@ public class GameService {
 		return INSTANCE;
 	}
 
-	public Player addPlayer(String username, String password, String name) {		
-		if (!isValidUser(username, password, name)) {
-			return null;
-		}
-		
-		boolean userExisted = store.getPlayers()
-				.stream()
-				.anyMatch(player -> player.getUsername().equals(username));
+	public GameSession createGame(String username) {
+		var round = new GameSession(username);
+		round.setActive(true);
+		// Deactive other game
+		gameSessionRepository.deactivateAllGame(username);
 
-		if (userExisted) {
-			return null;
-		}
-		
-		Player player = new Player(username, password, name);
+		gameSessionRepository.save(round);
 
-		store.getPlayers().add(player);
-		
-		return player;
+		return round;
 	}
 
-	private boolean isValidUser(String username, String password, String name) {
-		if (username.isEmpty() || username == null) {
-			return false;
-		}
-		if (password.isEmpty() || password == null) {
-			return false;
-		}
-		if (name.isEmpty() || name == null) {
-			return false;
-		}
-		return true;
+	public GameSession getCurrentGame(String username) {
+		List<GameSession> games = gameSessionRepository.findByUsername(username);
+
+		// get current active game, if there's no game -> create new one
+		var activeGame = games.isEmpty()
+				? createGame(username)
+				: games.stream()
+				.filter(GameSession::isActive)
+				.findFirst()
+				.orElseGet(() -> createGame(username));
+
+		// get guess list and add to game
+		activeGame.setGuess(guessRepository
+				.findBySession(activeGame.getId()));
+
+		return activeGame;
 	}
 
-	public Player signIn(String username, String password) {
-		return store.getPlayers().stream()
-				.filter(player -> player.getUsername().equals(username) && player.getPassword().equals(password))
-				.findFirst().orElse(null);
+	public GameSession skipAndPlayNewGame(String username) {
+		return createGame(username);
 	}
-	
+
+	public GameSession getGameSession(String id) {
+		GameSession gameSession = gameSessionRepository.findById(id);
+		gameSession.setGuess(guessRepository.findBySession(id));
+		return gameSession;
+	}
+
+	public void saveGuess(Guess guess) {
+		guessRepository.save(guess);
+	}
+
+	public void completeGame(String sessionId) {
+		gameSessionRepository.completeGame(sessionId);
+	}
+
 	public class Result {
 		public static final String GREATER_THAN = "Your number is greater than the result";
 		public static final String LESS_THAN = "Your number is less than the result";
